@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Guess Who? Бот-помощник</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1c1c1e; color: #fff; margin: 0; padding: 16px; text-align: center; }
+  .card { background: #2c2c2e; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  h2 { margin: 0 0 8px 0; font-size: 20px; color: #ffd60a; }
+  .question-box { font-size: 22px; font-weight: 700; margin: 14px 0; color: #fff; }
+  .sub-info { font-size: 14px; color: #98989f; margin-bottom: 14px; }
+  .btn-group { display: flex; gap: 12px; justify-content: center; }
+  button { flex: 1; padding: 14px; font-size: 18px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; color: #fff; }
+  .btn-yes { background: #30d158; }
+  .btn-no { background: #ff453a; }
+  .btn-reset { background: #0a84ff; margin-top: 12px; width: 100%; font-size: 16px; padding: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+  .char { background: #3a3a3c; padding: 8px 4px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: 0.2s; }
+  .char.eliminated { opacity: 0.2; text-decoration: line-through; background: #1c1c1e; }
+  .char.winner { background: #30d158; color: #000; font-weight: 800; transform: scale(1.06); }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>🎯 Лучший вопрос сейчас:</h2>
+  <div id="question" class="question-box">Загрузка...</div>
+  <div id="split-info" class="sub-info"></div>
+  <div class="btn-group" id="controls">
+    <button class="btn-yes" onclick="answer(true)">ДА</button>
+    <button class="btn-no" onclick="answer(false)">НЕТ</button>
+  </div>
+  <button class="btn-reset" onclick="resetGame()">🔄 Новая игра</button>
+</div>
+
+<div class="card">
+  <h2>Осталось: <span id="count">30</span> из 30</h2>
+  <div class="grid" id="board"></div>
+</div>
+
+<script>
+const characters = [
+  { name: "Lucy", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:0, hat:1, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Tom", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:1, hat:0, earrings:0, facialHair:1, shortHair:1, bald:1, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Sara", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:1, hat:1, earrings:0, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "Emma", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Henry", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:0, facialHair:1, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "Rose", f:1, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:0, hat:1, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Jeff", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:1, hat:0, earrings:0, facialHair:1, shortHair:0, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Lia", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Rob", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:0, hat:1, earrings:0, facialHair:1, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Aria", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:1, hat:0, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Bob", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "Bella", f:1, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:1, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Sophia", f:1, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:1, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Jack", f:0, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:0, glasses:0, hat:1, earrings:0, facialHair:1, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Jose", f:0, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:0, facialHair:1, shortHair:1, bald:1, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Theo", f:0, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:0, hat:0, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Annie", f:1, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:0, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:1, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Paul", f:0, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:0, facialHair:1, shortHair:0, bald:0, blonde:0, redHair:1, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Olivia", f:1, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Chloe", f:1, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "Nora", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:1, hat:1, earrings:1, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:1, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "James", f:0, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:1, hat:1, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "Bill", f:0, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:0, hat:0, earrings:0, facialHair:0, shortHair:1, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "Julia", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Naomi", f:1, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:0, glasses:0, hat:0, earrings:1, facialHair:0, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Ryan", f:0, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:0, glasses:1, hat:1, earrings:0, facialHair:1, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:0, brownHair:1 },
+  { name: "David", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:0, hat:0, earrings:0, facialHair:1, shortHair:0, bald:0, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 },
+  { name: "Mila", f:1, brownEyes:0, greenEyes:1, blueEyes:0, darkSkin:1, glasses:1, hat:0, earrings:0, facialHair:0, shortHair:0, bald:0, blonde:1, redHair:0, greyHair:0, blackHair:0, brownHair:0 },
+  { name: "John", f:0, brownEyes:0, greenEyes:0, blueEyes:1, darkSkin:1, glasses:0, hat:1, earrings:0, facialHair:1, shortHair:1, bald:0, blonde:0, redHair:0, greyHair:1, blackHair:0, brownHair:0 },
+  { name: "Ben", f:0, brownEyes:1, greenEyes:0, blueEyes:0, darkSkin:1, glasses:1, hat:0, earrings:0, facialHair:0, shortHair:1, bald:1, blonde:0, redHair:0, greyHair:0, blackHair:1, brownHair:0 }
+];
+
+const traits = [
+  { key: "f", label: "Пол → Это женщина?" },
+  { key: "brownEyes", label: "Цвет глаз → Карие глаза?" },
+  { key: "greenEyes", label: "Цвет глаз → Зеленые глаза?" },
+  { key: "blueEyes", label: "Цвет глаз → Голубые глаза?" },
+  { key: "darkSkin", label: "Цвет кожи → Темная кожа?" },
+  { key: "glasses", label: "Аксессуары → Носит очки?" },
+  { key: "hat", label: "Аксессуары → Есть головной убор?" },
+  { key: "earrings", label: "Аксессуары → Есть серьги?" },
+  { key: "facialHair", label: "Волосы на лице → Есть усы/борода?" },
+  { key: "shortHair", label: "Волосы → Короткие волосы?" },
+  { key: "bald", label: "Волосы → Лысый?" },
+  { key: "blonde", label: "Цвет волос → Светлые (желтые) волосы?" },
+  { key: "redHair", label: "Цвет волос → Рыжие волосы?" },
+  { key: "greyHair", label: "Цвет волос → Седые (белые) волосы?" },
+  { key: "blackHair", label: "Цвет волос → Черные волосы?" },
+  { key: "brownHair", label: "Цвет волос → Каштановые волосы?" }
+];
+
+let active = [...characters];
+let currentBestTrait = null;
+
+function updateUI() {
+  document.getElementById("count").innerText = active.length;
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  
+  characters.forEach(c => {
+    const isAlive = active.some(a => a.name === c.name);
+    const div = document.createElement("div");
+    div.className = "char" + (!isAlive ? " eliminated" : (active.length === 1 ? " winner" : ""));
+    div.innerText = c.name;
+    board.appendChild(div);
+  });
+
+  if (active.length <= 1) {
+    document.getElementById("question").innerText = active.length === 1 ? `🎉 Это ${active[0].name}!` : "Никого не осталось";
+    document.getElementById("split-info").innerText = "Называй персонажа и побеждай!";
+    document.getElementById("controls").style.display = "none";
+    return;
+  }
+
+  // Ищем вопрос, который делит оставшихся ближе всего к 50/50
+  let bestDiff = Infinity;
+  let bestTrait = null;
+  let bestYes = 0;
+
+  traits.forEach(t => {
+    const yesCount = active.filter(c => c[t.key] === 1).length;
+    if (yesCount > 0 && yesCount < active.length) {
+      const diff = Math.abs(active.length / 2 - yesCount);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestTrait = t;
+        bestYes = yesCount;
+      }
+    }
+  });
+
+  currentBestTrait = bestTrait;
+  if (bestTrait) {
+    const noCount = active.length - bestYes;
+    document.getElementById("question").innerText = bestTrait.label;
+    document.getElementById("split-info").innerText = `Разделит ровно: ${bestYes} (ДА) / ${noCount} (НЕТ)`;
+    document.getElementById("controls").style.display = "flex";
+  } else {
+    document.getElementById("question").innerText = `Угадывай вручную: ${active.map(a => a.name).join(" или ")}`;
+    document.getElementById("split-info").innerText = "У этих персонажей одинаковые базовые признаки!";
+    document.getElementById("controls").style.display = "none";
+  }
+}
+
+function answer(isYes) {
+  if (!currentBestTrait) return;
+  const val = isYes ? 1 : 0;
+  active = active.filter(c => c[currentBestTrait.key] === val);
+  updateUI();
+}
+
+function resetGame() {
+  active = [...characters];
+  updateUI();
+}
+
+resetGame();
+</script>
+</body>
+</html>
